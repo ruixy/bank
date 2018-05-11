@@ -42,37 +42,77 @@ def OpenAccount():
         card_history.save()
 
 def deposit(card, money):
-    card=Card()
-    cardstatus=CardStatus()
-    cardstatus.name='正常'
-    card.status=cardstatus
-    # print('******************************************')
-    # print(type(card.balance_available))
-    # print(card.balance_available)
-    # print('******************************************')
-    if card.status.name == '正常':
-        balance_old=card.balance
-        balance_new=balance_old + money
-        card.balance_available=balance_new
-        card.balance_freeze=0
+    '''
+    存款
+    :param card:
+    :param money:
+    :return:
+    '''
+    s_status = '正常'
+
+    if card.status.name == s_status:
+        try:
+            operate = CardOperateType.objects.get(name='存款')
+        except CardOperateType.DoesNotExit:
+            msg='操作类型不存在'
+            raise ValueError(msg)
+        data_old = card.to_json()
+
+        card.balance = card.balance+money
+        card.balance_available = card.balance_available+money
         card.save()
 
-        card_history=CardHistory()
-        card_history.remark='''
-            时间:{time},
-            当前余额:{balance},
-            可用余额:{available},
-            冻结金额:{freeze},
-        '''.format(
-            time=datetime.datetime.now(),
-            balance=card.balance_new,
-            available=card.balance_available,
-            freeze=card.balance_freeze
-        )
-        card_history.card=card
-        card_history.operate=CardOperateType.object.get(name='存款')
-        card_history.save()
-    else:
-        return ValueError('银行卡状态错误')
+        data_new = card.to_json()
 
+        remark='''
+        时间：{time}，
+        发生金额：{money}，
+        业务发生前的数据：{data_old}，
+        业务发生后的数据：{data_new}，
+        '''.format(
+            time = datetime.datetime.now(),
+            money = money,
+            data_old = data_old,
+            data_new = data_new,
+        )
+        obj = CardHistory(
+            card=card,
+            operate=CardOperateType.objects.get(name='存款')
+        )
+    else:
+        msg='银行卡的状态错误.status: {}'.format(card.status.name)
+        raise ValueError(msg)
+
+
+def withdrawals(card, money):
+    s_status = '正常'
+    if card.status.name != s_status:
+        msg = '银行卡状态错误.status:{}'.format(card.status.name)
+        raise ValueError(msg)
+    if card.balance_available > money:
+        data_old = card.to_json()
+        card.balance = card.balance - money
+        card.balance_available = card.balance_available - money
+        card.save()
+
+        data_new = card.to_json()
+
+        remark='''
+        时间：{time}，
+        发生金额：{money}，
+        业务发生前的数据：{data_old}，
+        业务发生后的数据：{data_new}，
+        '''.format(
+            time = datetime.datetime.now(),
+            money = money,
+            data_old = data_old,
+            data_new = data_new,
+        )
+        obj = CardHistory(
+            card=card,
+            operate=CardOperateType.objects.get(name='取款')
+        )
+    else:
+        msg = '余额不足'
+        raise ValueError(msg)
 
